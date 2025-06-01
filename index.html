@@ -17,12 +17,67 @@
     <p>Upload your Inkscape SVG to extract and generate color themes.</p>
     <input type="file" id="svgFileInput" accept=".svg">
     <div id="output"></div>
+    <h2>Extracted SVG Structure</h2>
+    <pre id="structureOutput" style="background:#f4f4f4; padding:1em; border-radius:6px; max-height:400px; overflow:auto;"></pre>
   </div>
   <script>
-    // Placeholder for JS logic
+    // SVG structure extraction logic
     document.getElementById('svgFileInput').addEventListener('change', function(e) {
-      document.getElementById('output').innerText = 'SVG file selected: ' + e.target.files[0].name;
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const svgText = evt.target.result;
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(svgText, 'image/svg+xml');
+        const root = xmlDoc.documentElement;
+        // Start extraction
+        const structure = parseSVG(root);
+        document.getElementById('structureOutput').textContent = JSON.stringify(structure, null, 2);
+        document.getElementById('output').innerText = 'SVG file parsed and structure extracted!';
+      };
+      reader.readAsText(file);
     });
+
+    // Recursively extract SVG structure (groups and shapes)
+    function parseSVG(element, parentId = null) {
+      const tag = element.tagName ? element.tagName.replace(/^.*:/, '') : '';
+      if (tag === 'g') {
+        // Group
+        const groupId = element.getAttribute('id') || '';
+        const groupData = {
+          id: groupId,
+          type: 'group',
+          parent: parentId,
+          children: []
+        };
+        for (const child of element.children) {
+          const childStruct = parseSVG(child, groupId);
+          if (childStruct) groupData.children.push(childStruct);
+        }
+        return groupData;
+      } else if ([
+        'path', 'rect', 'circle', 'ellipse', 'polygon', 'line'
+      ].includes(tag)) {
+        return {
+          id: element.getAttribute('id') || '',
+          type: tag,
+          fill: extractFill(element),
+          parent: parentId
+        };
+      }
+      // Skip other elements
+      return null;
+    }
+
+    function extractFill(elem) {
+      // Try style attribute first
+      const style = elem.getAttribute('style') || '';
+      const match = style.match(/fill:([^;]+)/);
+      if (match) return match[1].trim();
+      // Fallback to direct fill attribute
+      return elem.getAttribute('fill') || '';
+    }
   </script>
 </body>
 </html>
