@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SVG Color Themes</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; margin: 2em; }
+    .container { max-width: 600px; margin: auto; }
+    h1 { color: #2a9d8f; }
+    input[type="file"] { margin-top: 1em; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>SVG Color Themes</h1>
+    <p>Upload your Inkscape SVG to extract and generate color themes.</p>
+    <input type="file" id="svgFileInput" accept=".svg">
+    <div id="output"></div>
+  </div>
+  <script>
+    // Placeholder for JS logic
+    document.getElementById('svgFileInput').addEventListener('change', function(e) {
+      document.getElementById('output').innerText = 'SVG file selected: ' + e.target.files[0].name;
+    });
+  </script>
+</body>
+</html>
