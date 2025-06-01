@@ -19,9 +19,27 @@
     <div id="output"></div>
     <h2>Extracted SVG Structure</h2>
     <pre id="structureOutput" style="background:#f4f4f4; padding:1em; border-radius:6px; max-height:400px; overflow:auto;"></pre>
+
+    <div id="themeControls" style="display:none; margin-top:2em;">
+      <h2>Base Colors &amp; Adjustments</h2>
+      <form id="baseColorsForm"></form>
+      <button id="generateThemesBtn" type="button" style="margin-top:1em;">Generate Color Themes</button>
+    </div>
+    <h2>Generated Color Themes</h2>
+    <pre id="themesOutput" style="background:#eaf4fa; padding:1em; border-radius:6px; max-height:400px; overflow:auto;"></pre>
   </div>
   <script>
     // SVG structure extraction logic
+    let extractedStructure = null;
+    let baseColors = [
+      { name: 'red_family', color: '#f25c54', hue: 0, saturation: 0, lightness: 0 },
+      { name: 'teal_family', color: '#2a9d8f', hue: 0, saturation: 0, lightness: 0 },
+      { name: 'yellow_family', color: '#f6bd60', hue: 0, saturation: 0, lightness: 0 },
+      { name: 'purple_family', color: '#6a0572', hue: 0, saturation: 0, lightness: 0 },
+      { name: 'orange_family', color: '#f7b32b', hue: 0, saturation: 0, lightness: 0 },
+      { name: 'blue_family', color: '#488bfc', hue: 0, saturation: 0, lightness: 0 }
+    ];
+
     document.getElementById('svgFileInput').addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -32,12 +50,176 @@
         const xmlDoc = parser.parseFromString(svgText, 'image/svg+xml');
         const root = xmlDoc.documentElement;
         // Start extraction
-        const structure = parseSVG(root);
-        document.getElementById('structureOutput').textContent = JSON.stringify(structure, null, 2);
+        extractedStructure = parseSVG(root);
+        document.getElementById('structureOutput').textContent = JSON.stringify(extractedStructure, null, 2);
         document.getElementById('output').innerText = 'SVG file parsed and structure extracted!';
+        // Show theme controls
+        renderBaseColorsForm();
+        document.getElementById('themeControls').style.display = '';
+        document.getElementById('themesOutput').textContent = '';
       };
       reader.readAsText(file);
     });
+
+    document.getElementById('generateThemesBtn').addEventListener('click', function() {
+      if (!extractedStructure) {
+        alert('Please upload an SVG first.');
+        return;
+      }
+      updateBaseColorsFromForm();
+      const themes = generateColorThemes(extractedStructure, baseColors);
+      document.getElementById('themesOutput').textContent = JSON.stringify(themes, null, 2);
+    });
+
+    function renderBaseColorsForm() {
+      const form = document.getElementById('baseColorsForm');
+      form.innerHTML = '';
+      baseColors.forEach((bc, idx) => {
+        form.innerHTML += `
+          <div style="margin-bottom:1em; padding:0.5em; border:1px solid #ccc; border-radius:4px;">
+            <label>Name: <input type="text" value="${bc.name}" id="bc_name_${idx}" style="width:110px"></label>
+            <label style="margin-left:1em;">Color: <input type="color" value="${bc.color}" id="bc_color_${idx}"></label><br>
+            <label style="margin-right:1em;">Hue Δ: <input type="number" value="${bc.hue}" id="bc_hue_${idx}" style="width:60px"> </label>
+            <label style="margin-right:1em;">Sat Δ: <input type="number" value="${bc.saturation}" id="bc_sat_${idx}" style="width:60px"> </label>
+            <label>Light Δ: <input type="number" value="${bc.lightness}" id="bc_light_${idx}" style="width:60px"> </label>
+          </div>
+        `;
+      });
+    }
+
+    function updateBaseColorsFromForm() {
+      baseColors.forEach((bc, idx) => {
+        bc.name = document.getElementById(`bc_name_${idx}`).value;
+        bc.color = document.getElementById(`bc_color_${idx}`).value;
+        bc.hue = parseFloat(document.getElementById(`bc_hue_${idx}`).value) || 0;
+        bc.saturation = parseFloat(document.getElementById(`bc_sat_${idx}`).value) || 0;
+        bc.lightness = parseFloat(document.getElementById(`bc_light_${idx}`).value) || 0;
+      });
+    }
+
+    function hexToRgb(hex) {
+      hex = hex.replace(/^#/, '');
+      if (hex.length === 3) {
+        hex = hex.split('').map(x => x + x).join('');
+      }
+      const num = parseInt(hex, 16);
+      return [
+        (num >> 16) & 255,
+        (num >> 8) & 255,
+        num & 255
+      ];
+    }
+
+    function rgbToHex([r, g, b]) {
+      return (
+        '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')
+      );
+    }
+
+    function rgbToHsl([r, g, b]) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      let h, s, l = (max + min) / 2;
+      if (max === min) {
+        h = s = 0;
+      } else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+          case g: h = (b - r) / d + 2; break;
+          case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+      }
+      return [h * 360, s * 100, l * 100];
+    }
+
+    function hslToRgb([h, s, l]) {
+      h /= 360; s /= 100; l /= 100;
+      let r, g, b;
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    }
+
+    function generateColorThemes(structure, baseColors) {
+      // Find all paths (flattened)
+      let paths = [];
+      function collectPaths(node) {
+        if (node.type && ["path", "rect", "circle", "ellipse", "polygon", "line"].includes(node.type)) {
+          paths.push(node);
+        }
+        if (node.children) {
+          node.children.forEach(collectPaths);
+        }
+      }
+      collectPaths(structure);
+      if (paths.length === 0) return { error: "No paths found in SVG structure." };
+
+      // Extract original HSL for each path
+      let originalHSL = paths.map(p => {
+        let rgb = hexToRgb(p.fill);
+        return rgbToHsl(rgb);
+      });
+      // Compute mean H, S, L
+      let meanH = average(originalHSL.map(hsl => hsl[0]));
+      let meanS = average(originalHSL.map(hsl => hsl[1]));
+      let meanL = average(originalHSL.map(hsl => hsl[2]));
+      // Compute offsets for each path
+      let offsets = originalHSL.map(([h, s, l]) => [h - meanH, s - meanS, l - meanL]);
+
+      // Generate themes
+      let themes = {};
+      // Original theme
+      let originalTheme = {};
+      paths.forEach((p, i) => {
+        originalTheme[p.id] = p.fill;
+      });
+      themes["Original"] = originalTheme;
+      // Family themes
+      baseColors.forEach(base => {
+        let baseRGB = hexToRgb(base.color);
+        let baseHSL = rgbToHsl(baseRGB);
+        // Apply adjustments
+        let baseH = baseHSL[0] + (base.hue || 0);
+        let baseS = baseHSL[1] + (base.saturation || 0);
+        let baseL = baseHSL[2] + (base.lightness || 0);
+        // Clamp
+        baseH = ((baseH % 360) + 360) % 360;
+        baseS = Math.max(0, Math.min(100, baseS));
+        baseL = Math.max(0, Math.min(100, baseL));
+        let assignments = {};
+        paths.forEach((p, i) => {
+          let h = ((baseH + offsets[i][0]) % 360 + 360) % 360;
+          let s = Math.max(0, Math.min(100, baseS + offsets[i][1]));
+          let l = Math.max(0, Math.min(100, baseL + offsets[i][2]));
+          let rgb = hslToRgb([h, s, l]);
+          assignments[p.id] = rgbToHex(rgb);
+        });
+        themes[base.name] = assignments;
+      });
+      return themes;
+    }
+
+    function average(arr) {
+      return arr.reduce((a, b) => a + b, 0) / arr.length;
+    }
 
     // Recursively extract SVG structure (groups and shapes)
     function parseSVG(element, parentId = null) {
