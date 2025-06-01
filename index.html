@@ -42,6 +42,20 @@
     // Recursively extract SVG structure (groups and shapes)
     function parseSVG(element, parentId = null) {
       const tag = element.tagName ? element.tagName.replace(/^.*:/, '') : '';
+      if (tag === 'svg') {
+        // Root SVG: wrap all children in a container
+        const svgData = {
+          id: element.getAttribute('id') || '',
+          type: 'svg',
+          parent: null,
+          children: []
+        };
+        for (const child of element.children) {
+          const childStruct = parseSVG(child, null);
+          if (childStruct) svgData.children.push(childStruct);
+        }
+        return svgData;
+      }
       if (tag === 'g') {
         // Group
         const groupId = element.getAttribute('id') || '';
