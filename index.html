@@ -9,6 +9,17 @@
     .container { max-width: 600px; margin: auto; }
     h1 { color: #2a9d8f; }
     input[type="file"] { margin-top: 1em; }
+    /* Swatch grid enhancements */
+    #swatchThemes {
+      margin-top: 2em;
+    }
+    #swatchThemes > div {
+      margin-bottom: 1.5em;
+    }
+    #swatchThemes .swatch-row {
+      display: flex;
+      gap: 8px;
+    }
   </style>
 </head>
 <body>
@@ -27,6 +38,7 @@
     </div>
     <h2>Generated Color Themes</h2>
     <pre id="themesOutput" style="background:#eaf4fa; padding:1em; border-radius:6px; max-height:400px; overflow:auto;"></pre>
+    <div id="swatchThemes"></div>
   </div>
   <script>
     // SVG structure extraction logic
@@ -69,6 +81,7 @@
       updateBaseColorsFromForm();
       const themes = generateColorThemes(extractedStructure, baseColors);
       document.getElementById('themesOutput').textContent = JSON.stringify(themes, null, 2);
+      renderThemeSwatches(themes);
     });
 
     function renderBaseColorsForm() {
@@ -275,6 +288,56 @@
       if (match) return match[1].trim();
       // Fallback to direct fill attribute
       return elem.getAttribute('fill') || '';
+    }
+
+    function getContrastYIQ(hexcolor) {
+      hexcolor = hexcolor.replace('#', '');
+      if (hexcolor.length === 3) {
+        hexcolor = hexcolor.split('').map(x => x + x).join('');
+      }
+      const r = parseInt(hexcolor.substr(0,2),16);
+      const g = parseInt(hexcolor.substr(2,2),16);
+      const b = parseInt(hexcolor.substr(4,2),16);
+      const yiq = ((r*299)+(g*587)+(b*114))/1000;
+      return (yiq >= 128) ? '#222' : '#fff';
+    }
+
+    function renderThemeSwatches(themes) {
+      const container = document.getElementById('swatchThemes');
+      container.innerHTML = '';
+      Object.entries(themes).forEach(([themeName, assignments]) => {
+        const themeDiv = document.createElement('div');
+        themeDiv.style.marginBottom = '1.5em';
+        const nameDiv = document.createElement('div');
+        nameDiv.textContent = themeName;
+        nameDiv.style.fontWeight = 'bold';
+        nameDiv.style.marginBottom = '0.5em';
+        themeDiv.appendChild(nameDiv);
+        const swatchRow = document.createElement('div');
+        swatchRow.style.display = 'flex';
+        swatchRow.style.gap = '8px';
+        Object.entries(assignments).forEach(([id, hex]) => {
+          const swatch = document.createElement('div');
+          swatch.style.background = hex;
+          swatch.style.width = '60px';
+          swatch.style.height = '36px';
+          swatch.style.borderRadius = '6px';
+          swatch.style.display = 'flex';
+          swatch.style.alignItems = 'center';
+          swatch.style.justifyContent = 'center';
+          swatch.style.fontSize = '0.85em';
+          swatch.style.fontWeight = 'bold';
+          swatch.style.color = getContrastYIQ(hex);
+          swatch.style.boxShadow = '0 1px 3px #0002';
+          swatch.style.position = 'relative';
+          swatch.style.cursor = 'pointer';
+          swatch.title = id;
+          swatch.textContent = hex.toUpperCase();
+          swatchRow.appendChild(swatch);
+        });
+        themeDiv.appendChild(swatchRow);
+        container.appendChild(themeDiv);
+      });
     }
   </script>
 </body>
