@@ -206,7 +206,11 @@
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        const v = await window.canvg.Canvg.fromString(ctx, themedSVG);
+        if (!window.canvg || !window.canvg.Canvg) {
+          alert("canvg library failed to load. Please check your internet connection or CDN link.");
+          return;
+        }
+        const v = await window.canvg.Canvg.from(ctx, themedSVG);
         await v.render();
         const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
         zip.file(themeName + '.png', blob);
