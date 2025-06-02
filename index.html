@@ -21,6 +21,9 @@
       gap: 8px;
     }
   </style>
+  <!-- Load canvg and JSZip from CDN for SVG->PNG and ZIP export -->
+  <script src="https://cdn.jsdelivr.net/npm/canvg/dist/browser/canvg.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
 </head>
 <body>
   <div class="container">
@@ -39,6 +42,16 @@
     <h2>Generated Color Themes</h2>
     <pre id="themesOutput" style="background:#eaf4fa; padding:1em; border-radius:6px; max-height:400px; overflow:auto;"></pre>
     <div id="swatchThemes"></div>
+    <div id="themedSVGControls" style="margin-top:2em; display:none;">
+      <button id="generateThemedSVGsBtn" type="button">Generate Themed SVGs</button>
+      <div id="themedSVGExportControls" style="display:none; margin-top:1em;">
+        <label><input type="checkbox" id="selectAllSVGs"> Select All</label>
+        <label style="margin-left:1em;">Width (px): <input type="number" id="exportWidth" min="16" value="512" style="width:80px;"></label>
+        <label style="margin-left:1em;">Height (px): <input type="number" id="exportHeight" min="16" value="512" style="width:80px;"></label>
+        <button id="exportPNGsBtn" type="button" style="margin-left:1em;">Export Selected as PNG</button>
+      </div>
+      <div id="themedSVGsPreview" style="margin-top:2em;"></div>
+    </div>
   </div>
   <script>
     // SVG structure extraction logic
@@ -73,6 +86,13 @@
       reader.readAsText(file);
     });
 
+    // Show the themed SVG controls after themes are generated
+    function showThemedSVGControls() {
+      document.getElementById('themedSVGControls').style.display = '';
+      document.getElementById('themedSVGExportControls').style.display = 'none';
+      document.getElementById('themedSVGsPreview').innerHTML = '';
+    }
+
     document.getElementById('generateThemesBtn').addEventListener('click', function() {
       if (!extractedStructure) {
         alert('Please upload an SVG first.');
@@ -82,6 +102,123 @@
       const themes = generateColorThemes(extractedStructure, baseColors);
       document.getElementById('themesOutput').textContent = JSON.stringify(themes, null, 2);
       renderThemeSwatches(themes);
+      showThemedSVGControls();
+    });
+
+    // --- Themed SVG and PNG Export Logic ---
+    let lastGeneratedThemes = null;
+    let lastSVGText = '';
+    document.getElementById('generateThemedSVGsBtn').addEventListener('click', async function() {
+      if (!extractedStructure) {
+        alert('Please upload and parse an SVG first.');
+        return;
+      }
+      // Get the original SVG text again (from the file input)
+      const fileInput = document.getElementById('svgFileInput');
+      const file = fileInput.files[0];
+      if (!file) { alert('No SVG file loaded.'); return; }
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        lastSVGText = evt.target.result;
+        // Generate themed SVGs for each theme
+        const themes = generateColorThemes(extractedStructure, baseColors);
+        lastGeneratedThemes = themes;
+        renderThemedSVGs(lastSVGText, themes);
+        document.getElementById('themedSVGExportControls').style.display = '';
+      };
+      reader.readAsText(file);
+    });
+
+    function renderThemedSVGs(svgText, themes) {
+      const container = document.getElementById('themedSVGsPreview');
+      container.innerHTML = '';
+      Object.entries(themes).forEach(([themeName, assignments], idx) => {
+        // Apply theme to SVG
+        const themedSVG = applyThemeToSVG(svgText, assignments);
+        // Create preview
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'flex';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.marginBottom = '1em';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'themedSVGCheckbox';
+        checkbox.value = themeName;
+        checkbox.checked = true;
+        wrapper.appendChild(checkbox);
+        const label = document.createElement('span');
+        label.textContent = themeName;
+        label.style.margin = '0 1em 0 0.5em';
+        wrapper.appendChild(label);
+        const img = document.createElement('img');
+        img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(themedSVG)));
+        img.style.width = '80px';
+        img.style.height = '80px';
+        img.style.border = '1px solid #ccc';
+        img.style.background = '#fff';
+        img.style.marginRight = '1em';
+        wrapper.appendChild(img);
+        container.appendChild(wrapper);
+      });
+    }
+
+    function applyThemeToSVG(svgText, assignments) {
+      // Replace fill colors by id
+      let parser = new DOMParser();
+      let xmlDoc = parser.parseFromString(svgText, 'image/svg+xml');
+      Object.entries(assignments).forEach(([id, hex]) => {
+        if (!id) return;
+        let elem = xmlDoc.getElementById(id);
+        if (elem) {
+          elem.setAttribute('fill', hex);
+          // Remove style fill if present
+          let style = elem.getAttribute('style');
+          if (style) {
+            let newStyle = style.replace(/fill:[^;]+;?/g, '');
+            elem.setAttribute('style', newStyle);
+          }
+        }
+      });
+      let serializer = new XMLSerializer();
+      return serializer.serializeToString(xmlDoc.documentElement);
+    }
+
+    // Select All logic
+    document.getElementById('selectAllSVGs').addEventListener('change', function(e) {
+      const checked = e.target.checked;
+      document.querySelectorAll('.themedSVGCheckbox').forEach(cb => { cb.checked = checked; });
+    });
+
+    // Export PNGs logic
+    document.getElementById('exportPNGsBtn').addEventListener('click', async function() {
+      const width = parseInt(document.getElementById('exportWidth').value) || 512;
+      const height = parseInt(document.getElementById('exportHeight').value) || 512;
+      const checkboxes = Array.from(document.querySelectorAll('.themedSVGCheckbox')).filter(cb => cb.checked);
+      if (checkboxes.length === 0) { alert('No themes selected.'); return; }
+      const zip = new JSZip();
+      let completed = 0;
+      for (const cb of checkboxes) {
+        const themeName = cb.value;
+        const assignments = lastGeneratedThemes[themeName];
+        const themedSVG = applyThemeToSVG(lastSVGText, assignments);
+        // Render to PNG using canvg
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        const v = await window.canvg.Canvg.fromString(ctx, themedSVG);
+        await v.render();
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+        zip.file(themeName + '.png', blob);
+        completed++;
+      }
+      // Download as zip
+      zip.generateAsync({type:"blob"}).then(function(content) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(content);
+        a.download = 'themed_pngs.zip';
+        a.click();
+      });
     });
 
     function renderBaseColorsForm() {
