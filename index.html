@@ -56,14 +56,18 @@
   <script>
     // SVG structure extraction logic
     let extractedStructure = null;
-    let baseColors = [
-      { name: 'red_family', color: '#f25c54', hue: 0, saturation: 0, lightness: 0 },
-      { name: 'teal_family', color: '#2a9d8f', hue: 0, saturation: 0, lightness: 0 },
-      { name: 'yellow_family', color: '#f6bd60', hue: 0, saturation: 0, lightness: 0 },
-      { name: 'purple_family', color: '#6a0572', hue: 0, saturation: 0, lightness: 0 },
-      { name: 'orange_family', color: '#f7b32b', hue: 0, saturation: 0, lightness: 0 },
-      { name: 'blue_family', color: '#488bfc', hue: 0, saturation: 0, lightness: 0 }
-    ];
+    // Only initialize baseColors if not already set (preserve user edits)
+    if (!window.baseColors || !Array.isArray(window.baseColors) || window.baseColors.length !== 6) {
+      window.baseColors = [
+        { name: 'red_family', color: '#f25c54', hue: 0, saturation: 0, lightness: 0 },
+        { name: 'teal_family', color: '#2a9d8f', hue: 0, saturation: 0, lightness: 0 },
+        { name: 'yellow_family', color: '#f6bd60', hue: 0, saturation: 0, lightness: 0 },
+        { name: 'purple_family', color: '#6a0572', hue: 0, saturation: 0, lightness: 0 },
+        { name: 'orange_family', color: '#f7b32b', hue: 0, saturation: 0, lightness: 0 },
+        { name: 'blue_family', color: '#488bfc', hue: 0, saturation: 0, lightness: 0 }
+      ];
+    }
+    let baseColors = window.baseColors;
 
     document.getElementById('svgFileInput').addEventListener('change', function(e) {
       const file = e.target.files[0];
@@ -74,6 +78,30 @@
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(svgText, 'image/svg+xml');
         const root = xmlDoc.documentElement;
+        // --- SVG dimension parsing ---
+        let svgWidth = null, svgHeight = null;
+        // Try width/height attributes
+        if (root.hasAttribute('width') && root.hasAttribute('height')) {
+          svgWidth = root.getAttribute('width');
+          svgHeight = root.getAttribute('height');
+          // Remove units (e.g., px)
+          svgWidth = parseFloat(svgWidth);
+          svgHeight = parseFloat(svgHeight);
+        }
+        // If not found, try viewBox
+        if ((!svgWidth || !svgHeight) && root.hasAttribute('viewBox')) {
+          const vb = root.getAttribute('viewBox').split(/\s+/);
+          if (vb.length === 4) {
+            svgWidth = parseFloat(vb[2]);
+            svgHeight = parseFloat(vb[3]);
+          }
+        }
+        // Set export width/height inputs if found
+        if (svgWidth && svgHeight) {
+          document.getElementById('exportWidth').value = Math.round(svgWidth);
+          document.getElementById('exportHeight').value = Math.round(svgHeight);
+        }
+        // --- End SVG dimension parsing ---
         // Start extraction
         extractedStructure = parseSVG(root);
         document.getElementById('structureOutput').textContent = JSON.stringify(extractedStructure, null, 2);
@@ -206,15 +234,25 @@
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        if (!window.canvg || !window.canvg.Canvg) {
-          alert("canvg library failed to load. Please check your internet connection or CDN link.");
-          return;
-        }
-        const v = await window.canvg.Canvg.from(ctx, themedSVG);
-        await v.render();
-        const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-        zip.file(themeName + '.png', blob);
-        completed++;
+        // CSP-safe SVG to PNG: draw SVG <img> to <canvas> and export as PNG
+        await new Promise((resolve, reject) => {
+          const img = new window.Image();
+          img.onload = function() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob(function(blob) {
+              zip.file(themeName + '.png', blob);
+              completed++;
+              resolve();
+            }, 'image/png');
+          };
+          img.onerror = function(e) {
+            alert('Failed to render SVG for theme: ' + themeName);
+            resolve();
+          };
+          // Ensure proper encoding for special characters
+          img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(themedSVG)));
+        });
       }
       // Download as zip
       zip.generateAsync({type:"blob"}).then(function(content) {
