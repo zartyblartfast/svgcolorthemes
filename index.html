@@ -4,520 +4,160 @@
   <meta charset="UTF-8">
   <title>SVG Color Themes</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: sans-serif; margin: 2em; }
-    .container { max-width: 600px; margin: auto; }
-    h1 { color: #2a9d8f; }
-    input[type="file"] { margin-top: 1em; }
-    /* Swatch grid enhancements */
-    #swatchThemes {
-      margin-top: 2em;
-    }
-    #swatchThemes > div {
-      margin-bottom: 1.5em;
-    }
-    #swatchThemes .swatch-row {
-      display: flex;
-      gap: 8px;
-    }
-  </style>
+  <!-- External CSS -->
+  <link rel="stylesheet" href="css/styles.css">
   <!-- Load canvg and JSZip from CDN for SVG->PNG and ZIP export -->
   <script src="https://cdn.jsdelivr.net/npm/canvg/dist/browser/canvg.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
+  
+  <!-- Load utility modules -->
+  <script src="js/color-utils.js"></script>
+  <script src="js/svg-utils.js"></script>
+  
+  <!-- Load theme generators -->
+  <script src="js/theme-generators/family-themes.js"></script>
+  <script src="js/theme-generators/algorithmic.js"></script>
+  <script src="js/theme-generators/index.js"></script>
+  
+  <!-- Load UI and export modules -->
+  <script src="js/ui.js"></script>
+  <script src="js/export.js"></script>
+  
+  <!-- Load main app module -->
+  <script src="js/main.js"></script>
 </head>
 <body>
   <div class="container">
     <h1>SVG Color Themes</h1>
     <p>Upload your Inkscape SVG to extract and generate color themes.</p>
     <input type="file" id="svgFileInput" accept=".svg">
-    <div id="output"></div>
-    <h2>Extracted SVG Structure</h2>
-    <pre id="structureOutput" style="background:#f4f4f4; padding:1em; border-radius:6px; max-height:400px; overflow:auto;"></pre>
-
-    <div id="themeControls" style="display:none; margin-top:2em;">
-      <h2>Base Colors &amp; Adjustments</h2>
-      <form id="baseColorsForm"></form>
-      <button id="generateThemesBtn" type="button" style="margin-top:1em;">Generate Color Themes</button>
+    
+    <div id="svgPreview" class="preview-container"></div>
+    <div id="pathCount" class="path-count"></div>
+    
+    <div class="section-header">
+      <h3>SVG Structure</h3>
+      <button id="toggleSvgStructure" class="toggle-button">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/></svg>
+        Show JSON
+      </button>
     </div>
-    <h2>Generated Color Themes</h2>
-    <pre id="themesOutput" style="background:#eaf4fa; padding:1em; border-radius:6px; max-height:400px; overflow:auto;"></pre>
-    <div id="swatchThemes"></div>
-    <div id="themedSVGControls" style="margin-top:2em; display:none;">
-      <button id="generateThemedSVGsBtn" type="button">Generate Themed SVGs</button>
-      <div id="themedSVGExportControls" style="display:none; margin-top:1em;">
-        <label><input type="checkbox" id="selectAllSVGs"> Select All</label>
-        <label style="margin-left:1em;">Width (px): <input type="number" id="exportWidth" min="16" value="512" style="width:80px;"></label>
-        <label style="margin-left:1em;">Height (px): <input type="number" id="exportHeight" min="16" value="512" style="width:80px;"></label>
-        <button id="exportPNGsBtn" type="button" style="margin-left:1em;">Export Selected as PNG</button>
+    <div id="svgStructureContainer" class="json-container">
+      <pre id="svgStructure" class="code-output"></pre>
+    </div>
+    
+    <!-- Theme Mode Tabs -->
+    <div id="themeModeTabs" class="tabs">
+      <div class="tab active" data-tab="family">Family Themes</div>
+      <div class="tab" data-tab="algorithmic">Algorithmic</div>
+    </div>
+    
+    <!-- Family Theme Panel -->
+    <div id="panel-family" class="panel">
+      <h2>Family Color Themes</h2>
+      <p>Generate themes that preserve relationships between colors in the original SVG.</p>
+      
+      <h3>Base Colors & Adjustments</h3>
+      <form id="baseColorsForm" class="form-grid"></form>
+      <button id="generateFamilyThemes" class="button primary" disabled>Generate Family Themes</button>
+    </div>
+    
+    <!-- Algorithmic Theme Panel -->
+    <div id="panel-algorithmic" class="panel" style="display:none;">
+      <h2>Algorithmic Color Themes</h2>
+      <p>Generate themes using color theory algorithms.</p>
+      
+      <div class="form-row">
+        <label for="algMode">Mode:</label>
+        <select id="algMode">
+          <option value="harmonies">Color Harmonies</option>
+          <option value="gradient">Gradient</option>
+          <option value="artistic">Artistic Palettes</option>
+        </select>
       </div>
-      <div id="themedSVGsPreview" style="margin-top:2em;"></div>
+      
+      <!-- Harmonies Controls -->
+      <div id="algHarmoniesControls" class="alg-controls">
+        <div class="form-row">
+          <label for="harmonyType">Harmony Type:</label>
+          <select id="harmonyType">
+            <option value="complementary">Complementary</option>
+            <option value="analogous">Analogous</option>
+            <option value="triadic">Triadic</option>
+            <option value="tetradic">Tetradic</option>
+            <option value="split-complementary">Split Complementary</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="harmonyBaseColor">Base Color:</label>
+          <input type="color" id="harmonyBaseColor" value="#2a9d8f">
+        </div>
+        <div id="harmonySwatchPreview" class="swatch-preview"></div>
+      </div>
+      
+      <!-- Gradient Controls -->
+      <div id="algGradientControls" class="alg-controls" style="display:none;">
+        <div class="form-row">
+          <label for="gradientStartColor">Start Color:</label>
+          <input type="color" id="gradientStartColor" value="#2a9d8f">
+        </div>
+        <div class="form-row">
+          <label for="gradientEndColor">End Color:</label>
+          <input type="color" id="gradientEndColor" value="#f25c54">
+        </div>
+        <div class="form-row">
+          <label for="gradientSteps">Steps:</label>
+          <input type="number" id="gradientSteps" min="2" max="20" value="5">
+        </div>
+        <div id="gradientSwatchPreview" class="swatch-preview"></div>
+      </div>
+      
+      <!-- Artistic Controls -->
+      <div id="algArtisticControls" class="alg-controls" style="display:none;">
+        <div class="form-row">
+          <label for="artisticPalette">Palette:</label>
+          <select id="artisticPalette">
+            <option value="autumn">Autumn</option>
+            <option value="pastel">Pastel</option>
+            <option value="neon">Neon</option>
+            <option value="solarized">Solarized</option>
+            <option value="material">Material</option>
+            <option value="flatui">Flat UI</option>
+            <option value="rainbow">Rainbow</option>
+          </select>
+        </div>
+        <div id="artisticSwatchPreview" class="swatch-preview"></div>
+      </div>
+      
+      <button id="generateAlgorithmicTheme" class="button primary" disabled>Generate Algorithmic Theme</button>
+    </div>
+    
+    <!-- Theme Output -->
+    <div class="section-header">
+      <h3>Theme Data</h3>
+      <button id="toggleThemeOutput" class="toggle-button">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6zM6 20V4h7v5h5v11H6z"/></svg>
+        Show JSON
+      </button>
+    </div>
+    <div id="themeOutputContainer" class="json-container">
+      <pre id="themeOutput" class="code-output"></pre>
+    </div>
+    
+    <!-- Theme Swatches -->
+    <h2>Theme Swatches</h2>
+    <div id="swatchThemes" class="swatch-container"></div>
+    
+    <!-- Themed SVGs Preview -->
+    <h2>Themed SVGs</h2>
+    <div id="themedSVGsPreview" class="themed-svgs-preview"></div>
+    
+    <!-- Export Controls -->
+    <div class="export-controls">
+      <button id="exportSVGZip" class="button export-button" disabled>Export Selected as SVG</button>
+      <button id="exportPNGZip" class="button export-button" disabled>Export Selected as PNG</button>
+      <button id="exportJSON" class="button export-button" disabled>Export Theme JSON</button>
     </div>
   </div>
-  <script>
-    // SVG structure extraction logic
-    let extractedStructure = null;
-    // Only initialize baseColors if not already set (preserve user edits)
-    if (!window.baseColors || !Array.isArray(window.baseColors) || window.baseColors.length !== 6) {
-      window.baseColors = [
-        { name: 'red_family', color: '#f25c54', hue: 0, saturation: 0, lightness: 0 },
-        { name: 'teal_family', color: '#2a9d8f', hue: 0, saturation: 0, lightness: 0 },
-        { name: 'yellow_family', color: '#f6bd60', hue: 0, saturation: 0, lightness: 0 },
-        { name: 'purple_family', color: '#6a0572', hue: 0, saturation: 0, lightness: 0 },
-        { name: 'orange_family', color: '#f7b32b', hue: 0, saturation: 0, lightness: 0 },
-        { name: 'blue_family', color: '#488bfc', hue: 0, saturation: 0, lightness: 0 }
-      ];
-    }
-    let baseColors = window.baseColors;
-
-    document.getElementById('svgFileInput').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        const svgText = evt.target.result;
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(svgText, 'image/svg+xml');
-        const root = xmlDoc.documentElement;
-        // --- SVG dimension parsing ---
-        let svgWidth = null, svgHeight = null;
-        // Try width/height attributes
-        if (root.hasAttribute('width') && root.hasAttribute('height')) {
-          svgWidth = root.getAttribute('width');
-          svgHeight = root.getAttribute('height');
-          // Remove units (e.g., px)
-          svgWidth = parseFloat(svgWidth);
-          svgHeight = parseFloat(svgHeight);
-        }
-        // If not found, try viewBox
-        if ((!svgWidth || !svgHeight) && root.hasAttribute('viewBox')) {
-          const vb = root.getAttribute('viewBox').split(/\s+/);
-          if (vb.length === 4) {
-            svgWidth = parseFloat(vb[2]);
-            svgHeight = parseFloat(vb[3]);
-          }
-        }
-        // Set export width/height inputs if found
-        if (svgWidth && svgHeight) {
-          document.getElementById('exportWidth').value = Math.round(svgWidth);
-          document.getElementById('exportHeight').value = Math.round(svgHeight);
-        }
-        // --- End SVG dimension parsing ---
-        // Start extraction
-        extractedStructure = parseSVG(root);
-        document.getElementById('structureOutput').textContent = JSON.stringify(extractedStructure, null, 2);
-        document.getElementById('output').innerText = 'SVG file parsed and structure extracted!';
-        // Show theme controls
-        renderBaseColorsForm();
-        document.getElementById('themeControls').style.display = '';
-        document.getElementById('themesOutput').textContent = '';
-      };
-      reader.readAsText(file);
-    });
-
-    // Show the themed SVG controls after themes are generated
-    function showThemedSVGControls() {
-      document.getElementById('themedSVGControls').style.display = '';
-      document.getElementById('themedSVGExportControls').style.display = 'none';
-      document.getElementById('themedSVGsPreview').innerHTML = '';
-    }
-
-    document.getElementById('generateThemesBtn').addEventListener('click', function() {
-      if (!extractedStructure) {
-        alert('Please upload an SVG first.');
-        return;
-      }
-      updateBaseColorsFromForm();
-      const themes = generateColorThemes(extractedStructure, baseColors);
-      document.getElementById('themesOutput').textContent = JSON.stringify(themes, null, 2);
-      renderThemeSwatches(themes);
-      showThemedSVGControls();
-    });
-
-    // --- Themed SVG and PNG Export Logic ---
-    let lastGeneratedThemes = null;
-    let lastSVGText = '';
-    document.getElementById('generateThemedSVGsBtn').addEventListener('click', async function() {
-      if (!extractedStructure) {
-        alert('Please upload and parse an SVG first.');
-        return;
-      }
-      // Get the original SVG text again (from the file input)
-      const fileInput = document.getElementById('svgFileInput');
-      const file = fileInput.files[0];
-      if (!file) { alert('No SVG file loaded.'); return; }
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        lastSVGText = evt.target.result;
-        // Generate themed SVGs for each theme
-        const themes = generateColorThemes(extractedStructure, baseColors);
-        lastGeneratedThemes = themes;
-        renderThemedSVGs(lastSVGText, themes);
-        document.getElementById('themedSVGExportControls').style.display = '';
-      };
-      reader.readAsText(file);
-    });
-
-    function renderThemedSVGs(svgText, themes) {
-      const container = document.getElementById('themedSVGsPreview');
-      container.innerHTML = '';
-      Object.entries(themes).forEach(([themeName, assignments], idx) => {
-        // Apply theme to SVG
-        const themedSVG = applyThemeToSVG(svgText, assignments);
-        // Create preview
-        const wrapper = document.createElement('div');
-        wrapper.style.display = 'flex';
-        wrapper.style.alignItems = 'center';
-        wrapper.style.marginBottom = '1em';
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'themedSVGCheckbox';
-        checkbox.value = themeName;
-        checkbox.checked = true;
-        wrapper.appendChild(checkbox);
-        const label = document.createElement('span');
-        label.textContent = themeName;
-        label.style.margin = '0 1em 0 0.5em';
-        wrapper.appendChild(label);
-        const img = document.createElement('img');
-        img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(themedSVG)));
-        img.style.width = '80px';
-        img.style.height = '80px';
-        img.style.border = '1px solid #ccc';
-        img.style.background = '#fff';
-        img.style.marginRight = '1em';
-        wrapper.appendChild(img);
-        container.appendChild(wrapper);
-      });
-    }
-
-    function applyThemeToSVG(svgText, assignments) {
-      // Replace fill colors by id
-      let parser = new DOMParser();
-      let xmlDoc = parser.parseFromString(svgText, 'image/svg+xml');
-      Object.entries(assignments).forEach(([id, hex]) => {
-        if (!id) return;
-        let elem = xmlDoc.getElementById(id);
-        if (elem) {
-          elem.setAttribute('fill', hex);
-          // Remove style fill if present
-          let style = elem.getAttribute('style');
-          if (style) {
-            let newStyle = style.replace(/fill:[^;]+;?/g, '');
-            elem.setAttribute('style', newStyle);
-          }
-        }
-      });
-      let serializer = new XMLSerializer();
-      return serializer.serializeToString(xmlDoc.documentElement);
-    }
-
-    // Select All logic
-    document.getElementById('selectAllSVGs').addEventListener('change', function(e) {
-      const checked = e.target.checked;
-      document.querySelectorAll('.themedSVGCheckbox').forEach(cb => { cb.checked = checked; });
-    });
-
-    // Export PNGs logic
-    document.getElementById('exportPNGsBtn').addEventListener('click', async function() {
-      const width = parseInt(document.getElementById('exportWidth').value) || 512;
-      const height = parseInt(document.getElementById('exportHeight').value) || 512;
-      const checkboxes = Array.from(document.querySelectorAll('.themedSVGCheckbox')).filter(cb => cb.checked);
-      if (checkboxes.length === 0) { alert('No themes selected.'); return; }
-      const zip = new JSZip();
-      let completed = 0;
-      for (const cb of checkboxes) {
-        const themeName = cb.value;
-        const assignments = lastGeneratedThemes[themeName];
-        const themedSVG = applyThemeToSVG(lastSVGText, assignments);
-        // Render to PNG using canvg
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        // CSP-safe SVG to PNG: draw SVG <img> to <canvas> and export as PNG
-        await new Promise((resolve, reject) => {
-          const img = new window.Image();
-          img.onload = function() {
-            ctx.clearRect(0, 0, width, height);
-            ctx.drawImage(img, 0, 0, width, height);
-            canvas.toBlob(function(blob) {
-              zip.file(themeName + '.png', blob);
-              completed++;
-              resolve();
-            }, 'image/png');
-          };
-          img.onerror = function(e) {
-            alert('Failed to render SVG for theme: ' + themeName);
-            resolve();
-          };
-          // Ensure proper encoding for special characters
-          img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(themedSVG)));
-        });
-      }
-      // Download as zip
-      zip.generateAsync({type:"blob"}).then(function(content) {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(content);
-        a.download = 'themed_pngs.zip';
-        a.click();
-      });
-    });
-
-    function renderBaseColorsForm() {
-      const form = document.getElementById('baseColorsForm');
-      form.innerHTML = '';
-      baseColors.forEach((bc, idx) => {
-        form.innerHTML += `
-          <div style="margin-bottom:1em; padding:0.5em; border:1px solid #ccc; border-radius:4px;">
-            <label>Name: <input type="text" value="${bc.name}" id="bc_name_${idx}" style="width:110px"></label>
-            <label style="margin-left:1em;">Color: <input type="color" value="${bc.color}" id="bc_color_${idx}"></label><br>
-            <label style="margin-right:1em;">Hue Δ: <input type="number" value="${bc.hue}" id="bc_hue_${idx}" style="width:60px"> </label>
-            <label style="margin-right:1em;">Sat Δ: <input type="number" value="${bc.saturation}" id="bc_sat_${idx}" style="width:60px"> </label>
-            <label>Light Δ: <input type="number" value="${bc.lightness}" id="bc_light_${idx}" style="width:60px"> </label>
-          </div>
-        `;
-      });
-    }
-
-    function updateBaseColorsFromForm() {
-      baseColors.forEach((bc, idx) => {
-        bc.name = document.getElementById(`bc_name_${idx}`).value;
-        bc.color = document.getElementById(`bc_color_${idx}`).value;
-        bc.hue = parseFloat(document.getElementById(`bc_hue_${idx}`).value) || 0;
-        bc.saturation = parseFloat(document.getElementById(`bc_sat_${idx}`).value) || 0;
-        bc.lightness = parseFloat(document.getElementById(`bc_light_${idx}`).value) || 0;
-      });
-    }
-
-    function hexToRgb(hex) {
-      hex = hex.replace(/^#/, '');
-      if (hex.length === 3) {
-        hex = hex.split('').map(x => x + x).join('');
-      }
-      const num = parseInt(hex, 16);
-      return [
-        (num >> 16) & 255,
-        (num >> 8) & 255,
-        num & 255
-      ];
-    }
-
-    function rgbToHex([r, g, b]) {
-      return (
-        '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')
-      );
-    }
-
-    function rgbToHsl([r, g, b]) {
-      r /= 255; g /= 255; b /= 255;
-      const max = Math.max(r, g, b), min = Math.min(r, g, b);
-      let h, s, l = (max + min) / 2;
-      if (max === min) {
-        h = s = 0;
-      } else {
-        const d = max - min;
-        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-        switch (max) {
-          case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-          case g: h = (b - r) / d + 2; break;
-          case b: h = (r - g) / d + 4; break;
-        }
-        h /= 6;
-      }
-      return [h * 360, s * 100, l * 100];
-    }
-
-    function hslToRgb([h, s, l]) {
-      h /= 360; s /= 100; l /= 100;
-      let r, g, b;
-      if (s === 0) {
-        r = g = b = l;
-      } else {
-        const hue2rgb = (p, q, t) => {
-          if (t < 0) t += 1;
-          if (t > 1) t -= 1;
-          if (t < 1/6) return p + (q - p) * 6 * t;
-          if (t < 1/2) return q;
-          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-          return p;
-        };
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        r = hue2rgb(p, q, h + 1/3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1/3);
-      }
-      return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
-    }
-
-    function generateColorThemes(structure, baseColors) {
-      // Find all paths (flattened)
-      let paths = [];
-      function collectPaths(node) {
-        if (node.type && ["path", "rect", "circle", "ellipse", "polygon", "line"].includes(node.type)) {
-          paths.push(node);
-        }
-        if (node.children) {
-          node.children.forEach(collectPaths);
-        }
-      }
-      collectPaths(structure);
-      if (paths.length === 0) return { error: "No paths found in SVG structure." };
-
-      // Extract original HSL for each path
-      let originalHSL = paths.map(p => {
-        let rgb = hexToRgb(p.fill);
-        return rgbToHsl(rgb);
-      });
-      // Compute mean H, S, L
-      let meanH = average(originalHSL.map(hsl => hsl[0]));
-      let meanS = average(originalHSL.map(hsl => hsl[1]));
-      let meanL = average(originalHSL.map(hsl => hsl[2]));
-      // Compute offsets for each path
-      let offsets = originalHSL.map(([h, s, l]) => [h - meanH, s - meanS, l - meanL]);
-
-      // Generate themes
-      let themes = {};
-      // Original theme
-      let originalTheme = {};
-      paths.forEach((p, i) => {
-        originalTheme[p.id] = p.fill;
-      });
-      themes["Original"] = originalTheme;
-      // Family themes
-      baseColors.forEach(base => {
-        let baseRGB = hexToRgb(base.color);
-        let baseHSL = rgbToHsl(baseRGB);
-        // Apply adjustments
-        let baseH = baseHSL[0] + (base.hue || 0);
-        let baseS = baseHSL[1] + (base.saturation || 0);
-        let baseL = baseHSL[2] + (base.lightness || 0);
-        // Clamp
-        baseH = ((baseH % 360) + 360) % 360;
-        baseS = Math.max(0, Math.min(100, baseS));
-        baseL = Math.max(0, Math.min(100, baseL));
-        let assignments = {};
-        paths.forEach((p, i) => {
-          let h = ((baseH + offsets[i][0]) % 360 + 360) % 360;
-          let s = Math.max(0, Math.min(100, baseS + offsets[i][1]));
-          let l = Math.max(0, Math.min(100, baseL + offsets[i][2]));
-          let rgb = hslToRgb([h, s, l]);
-          assignments[p.id] = rgbToHex(rgb);
-        });
-        themes[base.name] = assignments;
-      });
-      return themes;
-    }
-
-    function average(arr) {
-      return arr.reduce((a, b) => a + b, 0) / arr.length;
-    }
-
-    // Recursively extract SVG structure (groups and shapes)
-    function parseSVG(element, parentId = null) {
-      const tag = (element.tagName || '').toLowerCase().replace(/^.*:/, '');
-      console.log('Parsing tag:', tag);
-
-      if (tag === 'svg') {
-        // Root SVG: wrap all children in a container
-        const svgData = {
-          id: element.getAttribute('id') || '',
-          type: 'svg',
-          parent: null,
-          children: []
-        };
-        for (const child of element.children) {
-          const childStruct = parseSVG(child, null);
-          if (childStruct) svgData.children.push(childStruct);
-        }
-        return svgData;
-      }
-      if (tag === 'g') {
-        // Group
-        const groupId = element.getAttribute('id') || '';
-        const groupData = {
-          id: groupId,
-          type: 'group',
-          parent: parentId,
-          children: []
-        };
-        for (const child of element.children) {
-          const childStruct = parseSVG(child, groupId);
-          if (childStruct) groupData.children.push(childStruct);
-        }
-        return groupData;
-      } else if ([
-        'path', 'rect', 'circle', 'ellipse', 'polygon', 'line'
-      ].includes(tag)) {
-        return {
-          id: element.getAttribute('id') || '',
-          type: tag,
-          fill: extractFill(element),
-          parent: parentId
-        };
-      }
-      // Skip other elements
-      return null;
-    }
-
-    function extractFill(elem) {
-      // Try style attribute first
-      const style = elem.getAttribute('style') || '';
-      const match = style.match(/fill:([^;]+)/);
-      if (match) return match[1].trim();
-      // Fallback to direct fill attribute
-      return elem.getAttribute('fill') || '';
-    }
-
-    function getContrastYIQ(hexcolor) {
-      hexcolor = hexcolor.replace('#', '');
-      if (hexcolor.length === 3) {
-        hexcolor = hexcolor.split('').map(x => x + x).join('');
-      }
-      const r = parseInt(hexcolor.substr(0,2),16);
-      const g = parseInt(hexcolor.substr(2,2),16);
-      const b = parseInt(hexcolor.substr(4,2),16);
-      const yiq = ((r*299)+(g*587)+(b*114))/1000;
-      return (yiq >= 128) ? '#222' : '#fff';
-    }
-
-    function renderThemeSwatches(themes) {
-      const container = document.getElementById('swatchThemes');
-      container.innerHTML = '';
-      Object.entries(themes).forEach(([themeName, assignments]) => {
-        const themeDiv = document.createElement('div');
-        themeDiv.style.marginBottom = '1.5em';
-        const nameDiv = document.createElement('div');
-        nameDiv.textContent = themeName;
-        nameDiv.style.fontWeight = 'bold';
-        nameDiv.style.marginBottom = '0.5em';
-        themeDiv.appendChild(nameDiv);
-        const swatchRow = document.createElement('div');
-        swatchRow.style.display = 'flex';
-        swatchRow.style.gap = '8px';
-        Object.entries(assignments).forEach(([id, hex]) => {
-          const swatch = document.createElement('div');
-          swatch.style.background = hex;
-          swatch.style.width = '60px';
-          swatch.style.height = '36px';
-          swatch.style.borderRadius = '6px';
-          swatch.style.display = 'flex';
-          swatch.style.alignItems = 'center';
-          swatch.style.justifyContent = 'center';
-          swatch.style.fontSize = '0.85em';
-          swatch.style.fontWeight = 'bold';
-          swatch.style.color = getContrastYIQ(hex);
-          swatch.style.boxShadow = '0 1px 3px #0002';
-          swatch.style.position = 'relative';
-          swatch.style.cursor = 'pointer';
-          swatch.title = id;
-          swatch.textContent = hex.toUpperCase();
-          swatchRow.appendChild(swatch);
-        });
-        themeDiv.appendChild(swatchRow);
-        container.appendChild(themeDiv);
-      });
-    }
-  </script>
 </body>
 </html>
